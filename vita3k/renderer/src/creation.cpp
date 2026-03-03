@@ -274,7 +274,7 @@ bool init(SDL_Window *window, std::unique_ptr<State> &state, Backend backend, co
     state->current_backend = backend;
 
     // Can change this
-    state->command_buffer_queue.maxPendingCount_ = 10;
+    state->command_buffer_queue.maxPendingCount_ = 10000;
 
     return true;
 }
