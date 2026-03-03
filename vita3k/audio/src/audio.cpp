@@ -68,8 +68,15 @@ AudioOutPortPtr AudioState::open_port(int nb_channels, int freq, int nb_sample) 
     return port;
 }
 
+// Skip same as display: only submit every (FRAME_SKIP + 1)th buffer.
+static constexpr int FRAME_SKIP = 1;
+static int audio_frame_skip_counter = 0;
+
 void AudioState::audio_output(ThreadState &thread, AudioOutPort &out_port, const void *buffer) {
     if (!buffer)
+        return;
+    // Drop every other buffer to match display frame skip (whole emulator skip 1 frame).
+    if ((audio_frame_skip_counter++ % (FRAME_SKIP + 1)) != 0)
         return;
     adapter->audio_output(thread, out_port, buffer);
 
