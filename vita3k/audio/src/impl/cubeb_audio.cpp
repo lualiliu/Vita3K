@@ -21,6 +21,8 @@
 
 #include "util/log.h"
 
+#include <algorithm>
+
 static long impl_cubeb_audio_callback(cubeb_stream *stream, void *user_data, const void *input, void *output, long nframes) {
     assert(user_data != nullptr);
     assert(stream != nullptr);
@@ -109,8 +111,10 @@ AudioOutPortPtr CubebAudioAdapter::open_port(int nb_channels, int freq, int nb_s
 
     port->len_bytes = nb_sample * nb_channels * sizeof(uint16_t);
 
-    // allocate enough buffers to be able to satisfy a callback (+1 to make sure one buffer can be ready)
-    const int nb_buffers = (latency + nb_sample - 1) / nb_sample + 1;
+    // Allocate enough buffers for callback; use extra headroom for async submission to avoid
+    // blocking the game thread when audio is produced in bursts.
+    const int min_latency_buffers = (latency + nb_sample - 1) / nb_sample + 1;
+    const int nb_buffers = std::max(min_latency_buffers + 4, 8);
     port->audio_buffers.resize(nb_buffers);
     for (AudioBuffer &audio_buffer : port->audio_buffers) {
         // initialize all the buffers

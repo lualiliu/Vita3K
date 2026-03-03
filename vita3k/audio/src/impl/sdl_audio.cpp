@@ -93,18 +93,10 @@ AudioOutPortPtr SDLAudioAdapter::open_port(int nb_channels, int freq, int nb_sam
     return port;
 }
 void SDLAudioAdapter::audio_output(ThreadState &thread, AudioOutPort &out_port, const void *buffer) {
-    //  Put audio to the port's stream and see how much is left to play.
+    // Async playback: only push data to the stream; do not block the caller.
+    // SDL pulls from the stream on its audio thread, so blocking here caused game/audio stutter.
     SDLAudioOutPort &port = static_cast<SDLAudioOutPort &>(out_port);
     SDL_CHECK_VOID(SDL_PutAudioStreamData(port.stream.get(), buffer, out_port.len_bytes));
-    const int samples_available = get_rest_sample(port);
-    // If there's lots of audio left to play, stop this thread.
-    // The audio callback will wake it up later when it's running out of data.
-    if (samples_available >= (4 * device_buffer_samples) + port.len) {
-        port.thread = thread.id;
-        std::unique_lock<std::mutex> mlock(thread.mutex);
-        thread.update_status(ThreadStatus::wait);
-        thread.status_cond.wait(mlock, [&]() { return thread.status == ThreadStatus::run; });
-    }
 }
 
 void SDLAudioAdapter::set_volume(AudioOutPort &out_port, float volume) {
