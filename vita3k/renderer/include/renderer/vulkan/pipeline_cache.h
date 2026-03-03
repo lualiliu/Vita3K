@@ -22,6 +22,7 @@
 #include <vkutil/vkutil.h>
 
 #include <array>
+#include <condition_variable>
 #include <limits>
 #include <map>
 #include <set>
@@ -85,6 +86,7 @@ private:
 
     // only used when accessing the shaders map
     std::mutex shaders_mutex;
+    std::condition_variable shader_compile_cond;
     // because of multithreading, we want the pointers to remain stable
     unordered_map_stable<Sha256Hash, vk::ShaderModule> shaders;
     unordered_map_stable<uint64_t, vk::Pipeline> pipelines;

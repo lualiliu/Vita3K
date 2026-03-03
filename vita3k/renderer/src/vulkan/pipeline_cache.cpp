@@ -31,6 +31,9 @@
 
 #include <SDL3/SDL_cpuinfo.h>
 
+#include <chrono>
+#include <thread>
+
 // don't use the dispatch version, because we always hash a small amount
 // with a known size
 #define XXH_INLINE_ALL
@@ -226,14 +229,18 @@ void PipelineCache::init(bool support_rasterized_order_access) {
     support_coherent_framebuffer_fetch = support_rasterized_order_access;
 
     const int nb_logical_threads = SDL_GetNumLogicalCPUCores();
-    // took this from RPCS3 (slightly modified)
-    if (nb_logical_threads > 12)
-        nb_worker_threads = 6;
+    // More worker threads improve pipeline compile throughput (especially on many-core CPUs)
+    if (nb_logical_threads >= 24)
+        nb_worker_threads = 12;
+    else if (nb_logical_threads >= 16)
+        nb_worker_threads = 10;
+    else if (nb_logical_threads > 12)
+        nb_worker_threads = 8;
     else if (nb_logical_threads > 8)
-        nb_worker_threads = 4;
-    else if (nb_logical_threads >= 8)
-        nb_worker_threads = 3;
+        nb_worker_threads = 6;
     else if (nb_logical_threads >= 6)
+        nb_worker_threads = 4;
+    else if (nb_logical_threads >= 4)
         nb_worker_threads = 2;
     else
         nb_worker_threads = 1;
@@ -412,13 +419,8 @@ vk::PipelineShaderStageCreateInfo PipelineCache::retrieve_shader(const SceGxmPro
         std::unique_lock<std::mutex> lock(shaders_mutex);
         shader_module = &shaders.insert({ hash, nullptr }).first->second;
         if (*shader_module == shader_compiling) {
-            // another thread is compiling the same exact shader at the same time
-            // it's no use re-compiling it, so just wait for the other thread being done
-            lock.unlock();
-
-            // we shouldn't need atomics and the compiler shouldn't be able to optimize this
-            while (*shader_module == shader_compiling)
-                std::this_thread::yield();
+            // another thread is compiling the same shader; wait for it to finish (avoids CPU spin/sleep)
+            shader_compile_cond.wait(lock, [&] { return *shader_module != shader_compiling; });
         }
 
         if (*shader_module == nullptr)
@@ -452,9 +454,10 @@ vk::PipelineShaderStageCreateInfo PipelineCache::retrieve_shader(const SceGxmPro
         .pCode = source.data()
     };
 
-    *shader_module = state.device.createShaderModule(shader_info);
+    vk::ShaderModule new_module = state.device.createShaderModule(shader_info);
     {
         std::lock_guard<std::mutex> guard(shaders_mutex);
+        *shader_module = new_module;
         // Save shader cache hashes
         // vertex and fragment shaders are not linked together so no need to associate them
         Sha256Hash empty_hash{};
@@ -463,6 +466,7 @@ vk::PipelineShaderStageCreateInfo PipelineCache::retrieve_shader(const SceGxmPro
         } else {
             state.shaders_cache_hashs.push_back({ empty_hash, hash });
         }
+        shader_compile_cond.notify_all();
     }
 
     vk::PipelineShaderStageCreateInfo shader_stage_info{
@@ -844,6 +848,7 @@ vk::Pipeline PipelineCache::compile_pipeline(SceGxmPrimitiveType type, vk::Rende
     };
 
     vk::GraphicsPipelineCreateInfo pipeline_info{
+        .flags = vk::PipelineCreateFlagBits::eAllowDerivatives,
         .stageCount = shader_stage_count,
         .pStages = shader_stages,
         .pVertexInputState = &vertex_input,
@@ -982,6 +987,7 @@ vk::ShaderModule PipelineCache::precompile_shader(const Sha256Hash &hash, bool s
     {
         std::lock_guard<std::mutex> guard(shaders_mutex);
         shaders[hash] = shader;
+        shader_compile_cond.notify_all();
     }
 
     return shader;
