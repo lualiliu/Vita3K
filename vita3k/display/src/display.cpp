@@ -35,6 +35,10 @@ static constexpr int64_t TARGET_MICRO_PER_FRAME = 1000000LL / TARGET_FPS;
 static constexpr int predict_threshold = 3;
 static constexpr int max_expected_swapchain_size = 6;
 
+// Display every (FRAME_SKIP + 1)th rendered frame.
+static constexpr int FRAME_SKIP = 1;
+static int frame_skip_counter = 0;
+
 static void vblank_sync_thread(EmuEnvState &emuenv) {
     DisplayState &display = emuenv.display;
 
@@ -191,7 +195,8 @@ void update_prediction(EmuEnvState &emuenv, DisplayFrameInfo &frame) {
 
     if (!display.predicting) {
         display.next_rendered_frame = frame;
-        emuenv.renderer->should_display = true;
+        if ((frame_skip_counter++ % (FRAME_SKIP + 1)) == 0)
+            emuenv.renderer->should_display = true;
     }
 
     for (auto &pred_frame : display.predicted_frames) {
@@ -209,7 +214,8 @@ void update_prediction(EmuEnvState &emuenv, DisplayFrameInfo &frame) {
     if (display.predicting) {
         LOG_TRACE("Mispredicted the next swapchain image");
         display.next_rendered_frame = frame;
-        emuenv.renderer->should_display = true;
+        if ((frame_skip_counter++ % (FRAME_SKIP + 1)) == 0)
+            emuenv.renderer->should_display = true;
     }
 
     // let predict_next_image reset the cycle if necessary

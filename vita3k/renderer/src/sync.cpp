@@ -29,6 +29,10 @@
 #include <util/tracy.h>
 
 namespace renderer {
+
+// Display every (FRAME_SKIP + 1)th rendered frame.
+static constexpr int FRAME_SKIP = 1;
+static int frame_skip_counter = 0;
 COMMAND(handle_nop) {
     TRACY_FUNC_COMMANDS(handle_nop);
     // Signal back to client
@@ -81,7 +85,8 @@ COMMAND(new_frame) {
         display->next_rendered_frame = *next_frame;
         delete next_frame;
 
-        renderer.should_display = true;
+        if ((frame_skip_counter++ % (FRAME_SKIP + 1)) == 0)
+            renderer.should_display = true;
     }
 
     if (renderer.current_backend == Backend::Vulkan) {
