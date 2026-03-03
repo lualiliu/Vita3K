@@ -30,8 +30,9 @@
 
 namespace renderer {
 
-// Display every (FRAME_SKIP + 1)th rendered frame.
-static constexpr int FRAME_SKIP = 1;
+// Skip 0.5 frame: display 2 out of every 3 frames (skip 1 of 3).
+static constexpr int FRAME_SKIP_DENOM = 3;  // period
+static constexpr int FRAME_SKIP_NUM = 2;    // display this many per period
 static int frame_skip_counter = 0;
 COMMAND(handle_nop) {
     TRACY_FUNC_COMMANDS(handle_nop);
@@ -85,7 +86,7 @@ COMMAND(new_frame) {
         display->next_rendered_frame = *next_frame;
         delete next_frame;
 
-        if ((frame_skip_counter++ % (FRAME_SKIP + 1)) == 0)
+        if ((frame_skip_counter++ % FRAME_SKIP_DENOM) < FRAME_SKIP_NUM)
             renderer.should_display = true;
     }
 
