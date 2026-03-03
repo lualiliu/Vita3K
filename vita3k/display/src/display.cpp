@@ -36,7 +36,7 @@ static constexpr int predict_threshold = 3;
 static constexpr int max_expected_swapchain_size = 6;
 
 // Display every (FRAME_SKIP + 1)th rendered frame.
-static constexpr int FRAME_SKIP = 1;
+static constexpr int FRAME_SKIP = 0;
 static int frame_skip_counter = 0;
 
 static void vblank_sync_thread(EmuEnvState &emuenv) {

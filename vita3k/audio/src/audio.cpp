@@ -69,7 +69,7 @@ AudioOutPortPtr AudioState::open_port(int nb_channels, int freq, int nb_sample) 
 }
 
 // Skip same as display: only submit every (FRAME_SKIP + 1)th buffer.
-static constexpr int FRAME_SKIP = 1;
+static constexpr int FRAME_SKIP = 0;
 static int audio_frame_skip_counter = 0;
 
 void AudioState::audio_output(ThreadState &thread, AudioOutPort &out_port, const void *buffer) {
