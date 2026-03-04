@@ -76,8 +76,8 @@ void AudioState::audio_output(ThreadState &thread, AudioOutPort &out_port, const
     if (!buffer)
         return;
     // Drop every other buffer to match display frame skip (whole emulator skip 1 frame).
-    if ((audio_frame_skip_counter++ % (FRAME_SKIP + 1)) != 0)
-        return;
+    //if ((audio_frame_skip_counter++ % (FRAME_SKIP + 1)) != 0)
+    //   return;
     adapter->audio_output(thread, out_port, buffer);
 
     // Async playback: do not block the caller. Backend (Cubeb/SDL) uses callback or

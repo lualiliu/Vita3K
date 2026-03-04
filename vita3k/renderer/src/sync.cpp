@@ -30,9 +30,9 @@
 
 namespace renderer {
 
-// Skip 0.5 frame: display 2 out of every 3 frames (skip 1 of 3).
-static constexpr int FRAME_SKIP_DENOM = 3;  // period
-static constexpr int FRAME_SKIP_NUM = 2;    // display this many per period
+// Skip 0.25 frame: display 3 out of every 4 frames (skip 1 of 4).
+static constexpr int FRAME_SKIP_DENOM = 4;  // period
+static constexpr int FRAME_SKIP_NUM = 3;    // display this many per period
 static int frame_skip_counter = 0;
 COMMAND(handle_nop) {
     TRACY_FUNC_COMMANDS(handle_nop);

@@ -195,8 +195,8 @@ void update_prediction(EmuEnvState &emuenv, DisplayFrameInfo &frame) {
 
     if (!display.predicting) {
         display.next_rendered_frame = frame;
-        if ((frame_skip_counter++ % (FRAME_SKIP + 1)) == 0)
-            emuenv.renderer->should_display = true;
+        //if ((frame_skip_counter++ % (FRAME_SKIP + 1)) == 0)
+        emuenv.renderer->should_display = true;
     }
 
     for (auto &pred_frame : display.predicted_frames) {
