@@ -1055,6 +1055,26 @@ Framebuffer &VKSurfaceCache::retrieve_framebuffer_handle(MemState &mem, SceGxmCo
     return (framebuffer_array[key] = { fb_standard, fb_interlock, color_result.base_image });
 }
 
+bool VKSurfaceCache::invalidate_surface_at_address(Address address) {
+    if (!state.features.enable_memory_mapping)
+        return false;
+
+    auto ite = color_address_lookup.upper_bound(address);
+    if (ite == color_address_lookup.begin())
+        return false;
+    --ite;
+    if (ite->first + ite->second->total_bytes <= address)
+        return false;
+
+    ColorSurfaceCacheInfo &info = *ite->second;
+    if (last_written_surface == &info)
+        last_written_surface = nullptr;
+    destroy_surface(info);
+    color_address_lookup.erase(ite);
+    color_surface_queue.set_as_lru(&info);
+    return true;
+}
+
 bool VKSurfaceCache::check_for_surface(MemState &mem, Address source_address, CallbackRequestFunction &callback, Address target_address) {
     if (!state.features.enable_memory_mapping || state.disable_surface_sync)
         return false;

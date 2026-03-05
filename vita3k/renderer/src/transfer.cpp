@@ -306,7 +306,9 @@ COMMAND(handle_transfer_fill) {
         }
     }
 
-    // TODO: handle case where dest is a cached surface
+    // Invalidate Vulkan surface cache if dest is cached, so next use reads from CPU-filled memory
+    if (renderer.current_backend == Backend::Vulkan && renderer.features.enable_memory_mapping)
+        dynamic_cast<vulkan::VKState &>(renderer).surface_cache.invalidate_surface_at_address(dest->address.address());
 
     delete dest;
 }

@@ -210,6 +210,10 @@ public:
     Framebuffer &retrieve_framebuffer_handle(MemState &mem, SceGxmColorSurface *color, SceGxmDepthStencilSurface *depth_stencil,
         vk::RenderPass standard_render_pass, vk::RenderPass interlock_render_pass, vk::ImageView &color_view, vk::ImageView &ds_view);
 
+    // Invalidate a cached color surface that contains the given address (e.g. after CPU wrote to it via transfer fill).
+    // Next retrieval will re-create from memory. Returns true if a surface was invalidated.
+    bool invalidate_surface_at_address(Address address);
+
     // Check if the address is one of a used surface
     // If it is the case, this function returns true, moves the callback
     // synchronize the surface back to the RAM then only call the callback

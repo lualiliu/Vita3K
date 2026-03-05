@@ -55,14 +55,16 @@ bool is_cmd_ready(MemState &mem, CommandList &command_list) {
     return sync->timestamp_current >= timestamp;
 }
 
+// Timeout for non-blocking wait so display can update; larger value improves compatibility on slow GPUs
+static constexpr int32_t BATCH_WAIT_SYNC_TIMEOUT_MICROS = 1500;
+
 static bool wait_cmd(MemState &mem, CommandList &command_list) {
     // we assume here that the cmd starts with a WaitSyncObject
 
     SceGxmSyncObject *sync = reinterpret_cast<Ptr<SceGxmSyncObject> *>(&command_list.first->data[0])->get(mem);
     const uint32_t timestamp = *reinterpret_cast<uint32_t *>(&command_list.first->data[sizeof(uint32_t)]);
 
-    // wait 500 micro seconds and then return in case should_display is set to true
-    return renderer::wishlist(sync, timestamp, 500);
+    return renderer::wishlist(sync, timestamp, BATCH_WAIT_SYNC_TIMEOUT_MICROS);
 }
 
 static void process_batch(renderer::State &state, const FeatureState &features, MemState &mem, Config &config, CommandList &command_list) {
