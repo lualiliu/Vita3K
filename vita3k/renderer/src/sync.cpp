@@ -16,6 +16,7 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 #include <chrono>
+#include <cstdint>
 #include <renderer/commands.h>
 #include <renderer/driver_functions.h>
 #include <renderer/state.h>
@@ -31,9 +32,9 @@
 namespace renderer {
 
 // Skip 0.25 frame: display 3 out of every 4 frames (skip 1 of 4).
-static constexpr int FRAME_SKIP_DENOM = 4;  // period
-static constexpr int FRAME_SKIP_NUM = 3;    // display this many per period
-static int frame_skip_counter = 0;
+//static constexpr int FRAME_SKIP_DENOM = 4;  // period
+//static constexpr int FRAME_SKIP_NUM = 3;    // display this many per period
+//static uint32_t frame_skip_counter = 0;     // unsigned: overflow wraps, no UB
 COMMAND(handle_nop) {
     TRACY_FUNC_COMMANDS(handle_nop);
     // Signal back to client
@@ -86,8 +87,8 @@ COMMAND(new_frame) {
         display->next_rendered_frame = *next_frame;
         delete next_frame;
 
-        if ((frame_skip_counter++ % FRAME_SKIP_DENOM) < FRAME_SKIP_NUM)
-            renderer.should_display = true;
+        //if ((frame_skip_counter++ % FRAME_SKIP_DENOM) < FRAME_SKIP_NUM)
+        renderer.should_display = true;
     }
 
     if (renderer.current_backend == Backend::Vulkan) {
