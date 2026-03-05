@@ -393,10 +393,13 @@ void draw(VKContext &context, SceGxmPrimitiveType type, SceGxmIndexFormat format
         context.refresh_pipeline = false;
         context.last_primitive = type;
 
-        // We don't want to defer cases where we draw a whole quad over the screen as these draws could be necessary
-        // to be able to see anything
+        // Previously we forced full-screen quads to compile pipelines synchronously (no deferral) so that
+        // critical draws (e.g. final compositing pass) were always available immediately.
+        // To improve overall frame pacing and avoid long stalls when new pipelines are created, we now allow
+        // these draws to also use asynchronous pipeline compilation.
         bool can_be_whole_quad = instance_count == 1 && count <= 6;
-        vk::Pipeline new_pipeline = context.state.pipeline_cache.retrieve_pipeline(context, type, !can_be_whole_quad, mem);
+        (void)can_be_whole_quad;
+        vk::Pipeline new_pipeline = context.state.pipeline_cache.retrieve_pipeline(context, type, true, mem);
 
         if (new_pipeline != context.current_pipeline) {
             context.current_pipeline = new_pipeline;

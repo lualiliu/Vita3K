@@ -41,6 +41,7 @@ static int frame_skip_counter = 0;
 
 static void vblank_sync_thread(EmuEnvState &emuenv) {
     DisplayState &display = emuenv.display;
+    auto last_vblank = std::chrono::steady_clock::now();
 
     while (!display.abort.load()) {
         {
@@ -79,9 +80,17 @@ static void vblank_sync_thread(EmuEnvState &emuenv) {
                 }
             }
         }
-        const auto time_ms = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        const auto time_left = TARGET_MICRO_PER_FRAME - (time_ms % TARGET_MICRO_PER_FRAME);
-        std::this_thread::sleep_for(std::chrono::microseconds(time_left));
+
+        // Aim for TARGET_FPS, but if the emulator is running slower than that, avoid oversleeping:
+        // only sleep the remaining time within the 1 / TARGET_FPS window since the last vblank.
+        auto now = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - last_vblank).count();
+        if (elapsed < TARGET_MICRO_PER_FRAME) {
+            const auto time_left = TARGET_MICRO_PER_FRAME - elapsed;
+            std::this_thread::sleep_for(std::chrono::microseconds(time_left));
+            now = std::chrono::steady_clock::now();
+        }
+        last_vblank = now;
     }
 }
 
