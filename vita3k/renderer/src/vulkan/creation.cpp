@@ -54,13 +54,13 @@ VKContext::VKContext(VKState &state, MemState &mem)
     fragment_info_uniform_buffer.alignment = uniform_alignment;
 
     if (state.features.enable_memory_mapping) {
-        // use the default buffer
+        // use the default buffer for vertex streams when stride is aligned; ring buffer still needed when restride is required (e.g. Mali)
         std::fill_n(vertex_stream_buffers, SCE_GXM_MAX_VERTEX_STREAMS, state.default_buffer.buffer);
+        vertex_stream_ring_buffer.create();
 
         // also initialize the gpu wait thread
         gpu_request_wait_thread = std::thread(&VKContext::wait_thread_function, this, std::ref(mem));
     } else {
-        // these are not needed when using memory mapping
         vertex_stream_ring_buffer.create();
         index_stream_ring_buffer.create();
         vertex_uniform_stream_ring_buffer.create();

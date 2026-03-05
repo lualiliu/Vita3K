@@ -26,6 +26,7 @@
 #include <renderer/shaders.h>
 #include <shader/spirv_recompiler.h>
 
+#include <util/align.h>
 #include <util/fs.h>
 #include <util/log.h>
 
@@ -705,11 +706,8 @@ vk::PipelineVertexInputStateCreateInfo PipelineCache::get_vertex_input_state(con
 
         const bool is_instanced = gxm::is_stream_instancing(static_cast<SceGxmIndexSource>(stream.indexSource));
 
-#ifdef __APPLE__
+        // Mali and other GPUs require vertex stride to be at least 4-byte aligned; use aligned stride for all platforms
         const uint32_t stride = align(stream.stride, 4);
-#else
-        const uint32_t stride = stream.stride;
-#endif
         binding_descr.push_back(vk::VertexInputBindingDescription{
             .binding = stream_index,
             .stride = stride,

@@ -23,6 +23,7 @@
 #include <config/state.h>
 #include <spdlog/fmt/bin_to_hex.h>
 
+#include <util/align.h>
 #include <util/log.h>
 
 namespace renderer::vulkan {
@@ -100,10 +101,9 @@ void mid_scene_flush(VKContext &context, const SceGxmNotification notification) 
     }
 }
 
-#ifdef __APPLE__
-// restride vertex attribute binding strides to multiple of 4
-// needed for metal because it only allows multiples of 4.
-void restride_stream(const uint8_t *&stream, uint32_t &size, uint32_t stride) {
+// Restride vertex stream to multiple of 4 bytes. Required for Mali and other GPUs that do not handle
+// unaligned vertex stride correctly (causing vertex explosion/corruption).
+static void restride_stream(const uint8_t *&stream, uint32_t &size, uint32_t stride) {
     const uint32_t new_stride = align(stride, 4);
     const uint32_t nb_vertex_input = ((size + stride - 1) / stride);
 
@@ -115,7 +115,6 @@ void restride_stream(const uint8_t *&stream, uint32_t &size, uint32_t stride) {
     stream = new_data;
     size = nb_vertex_input * new_stride;
 }
-#endif
 
 // when needed, how many descriptor of the given size we allocate for each frame at once
 static constexpr uint32_t DESCRIPTOR_PACK_SIZE = 64;
@@ -291,7 +290,10 @@ static void bind_vertex_streams(VKContext &context, MemState &mem, uint32_t inst
 
     for (int i = 0; i < max_stream_idx; i++) {
         if (state.vertex_streams[i].data) {
-            if (context.state.features.enable_memory_mapping) {
+            const uint32_t stride = vertex_program.streams[i].stride;
+            const bool need_restride = (stride % 4 != 0);
+
+            if (context.state.features.enable_memory_mapping && !need_restride) {
                 auto [buffer, offset] = context.state.get_matching_mapping(state.vertex_streams[i].data.cast<void>());
 
                 context.vertex_stream_offsets[i] = offset;
@@ -299,21 +301,16 @@ static void bind_vertex_streams(VKContext &context, MemState &mem, uint32_t inst
             } else {
                 const uint8_t *stream = state.vertex_streams[i].data.get(mem);
                 uint32_t stream_size = state.vertex_streams[i].size;
-#ifdef __APPLE__
-                // Vulkan allows any stride, but Metal only allows multiples of 4.
-                const bool restride = vertex_program.streams[i].stride % 4 != 0;
-                if (restride) {
-                    restride_stream(stream, stream_size, vertex_program.streams[i].stride);
+                if (need_restride) {
+                    restride_stream(stream, stream_size, stride);
                 }
-#endif
                 context.vertex_stream_ring_buffer.allocate(context.prerender_cmd, stream_size, stream);
                 context.vertex_stream_offsets[i] = context.vertex_stream_ring_buffer.data_offset;
+                context.vertex_stream_buffers[i] = context.vertex_stream_ring_buffer.handle();
 
-#ifdef __APPLE__
-                if (restride) {
+                if (need_restride) {
                     delete[] stream;
                 }
-#endif
             }
 
             state.vertex_streams[i].data = nullptr;

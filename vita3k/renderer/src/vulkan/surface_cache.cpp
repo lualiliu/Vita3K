@@ -328,7 +328,7 @@ SurfaceRetrieveResult VKSurfaceCache::retrieve_color_surface_for_framebuffer(Mem
     return { info_added.texture.view, &info_added.texture };
 }
 
-std::optional<TextureLookupResult> VKSurfaceCache::retrieve_color_surface_as_texture(const SceGxmTexture &texture, const SceGxmColorBaseFormat base_format, TextureViewport *texture_viewport) {
+std::optional<TextureLookupResult> VKSurfaceCache::retrieve_color_surface_as_texture(const SceGxmTexture &texture, const SceGxmColorBaseFormat base_format, TextureViewport *texture_viewport, vk::CommandBuffer render_cmd) {
     // Create the key to access the cache struct
     const uint32_t address = (texture.data_addr << 2);
 
@@ -448,12 +448,16 @@ std::optional<TextureLookupResult> VKSurfaceCache::retrieve_color_surface_as_tex
         };
 
         // if everything matches
-        if (vk_format == info.texture.format && swizzle == info.swizzle)
+        if (vk_format == info.texture.format && swizzle == info.swizzle) {
+            if (render_cmd && !is_same_image && info.texture.layout == vkutil::ImageLayout::ColorAttachmentReadWrite) {
+                info.texture.transition_to(render_cmd, vkutil::ImageLayout::SampledImage);
+            }
             return TextureLookupResult{
                 info.texture.view,
                 info.texture.layout,
                 info.texture.format
             };
+        }
 
         // use the other view with the correct swizzle / gamma correction
         if (!info.alternate_view) {
@@ -469,6 +473,9 @@ std::optional<TextureLookupResult> VKSurfaceCache::retrieve_color_surface_as_tex
             info.alternate_view = state.device.createImageView(view_info);
         }
 
+        if (render_cmd && !is_same_image && info.texture.layout == vkutil::ImageLayout::ColorAttachmentReadWrite) {
+            info.texture.transition_to(render_cmd, vkutil::ImageLayout::SampledImage);
+        }
         return TextureLookupResult{
             info.alternate_view,
             info.texture.layout,
@@ -590,7 +597,7 @@ std::optional<TextureLookupResult> VKSurfaceCache::retrieve_color_surface_as_tex
                 .setImageExtent({ width, height, 1 });
             cmd_buffer.copyBufferToImage(casted->transition_buffer.buffer, casted->texture.image, vk::ImageLayout::eTransferDstOptimal, copy_image_buffer);
         }
-        casted->texture.transition_to(cmd_buffer, vkutil::ImageLayout::ColorAttachmentReadWrite);
+        casted->texture.transition_to(cmd_buffer, vkutil::ImageLayout::SampledImage);
 
         return TextureLookupResult{
             casted->texture.view,
@@ -599,13 +606,16 @@ std::optional<TextureLookupResult> VKSurfaceCache::retrieve_color_surface_as_tex
         };
     } else {
         // the renderpass external dependencies should take care of the barrier
-        if (swizzle == info.swizzle && vk_format == info.texture.format)
-            // we can use the same texture view
+        if (swizzle == info.swizzle && vk_format == info.texture.format) {
+            if (render_cmd && !is_same_image && info.texture.layout == vkutil::ImageLayout::ColorAttachmentReadWrite) {
+                info.texture.transition_to(render_cmd, vkutil::ImageLayout::SampledImage);
+            }
             return TextureLookupResult{
                 info.texture.view,
                 info.texture.layout,
                 info.texture.format
             };
+        }
 
         if (!info.alternate_view) {
             vk::ComponentMapping resulting_mapping = vkutil::color_to_texture_swizzle(info.swizzle, swizzle);
@@ -620,9 +630,12 @@ std::optional<TextureLookupResult> VKSurfaceCache::retrieve_color_surface_as_tex
             info.alternate_view = state.device.createImageView(view_info);
         }
 
+        if (render_cmd && !is_same_image && info.texture.layout == vkutil::ImageLayout::ColorAttachmentReadWrite) {
+            info.texture.transition_to(render_cmd, vkutil::ImageLayout::SampledImage);
+        }
         return TextureLookupResult{
             info.alternate_view,
-            vkutil::ImageLayout::ColorAttachmentReadWrite,
+            info.texture.layout,
             vk_format
         };
     }

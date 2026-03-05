@@ -88,8 +88,8 @@ void sync_texture(VKContext &context, MemState &mem, std::size_t index, SceGxmTe
     TextureViewport texture_viewport{};
 
     if (renderer::texture::convert_base_texture_format_to_base_color_format(base_format, format_target_of_texture)) {
-        // try to retrieve it from the color surface cache
-        lookup_result = context.state.surface_cache.retrieve_color_surface_as_texture(texture, format_target_of_texture, &texture_viewport);
+        // try to retrieve it from the color surface cache (pass render_cmd so surface is transitioned to ShaderReadOnly for sampling)
+        lookup_result = context.state.surface_cache.retrieve_color_surface_as_texture(texture, format_target_of_texture, &texture_viewport, context.render_cmd);
     }
 
     bool is_depth_surface = false;

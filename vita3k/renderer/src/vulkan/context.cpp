@@ -315,6 +315,11 @@ void VKContext::start_render_pass(bool create_descriptor_set) {
     if (!is_recording)
         start_recording();
 
+    // If color attachment was previously used as texture (SampledImage), transition back for use as render target
+    if (current_color_base_image && current_color_base_image->layout == vkutil::ImageLayout::SampledImage) {
+        current_color_base_image->transition_to(render_cmd, vkutil::ImageLayout::ColorAttachmentReadWrite);
+    }
+
     curr_renderpass_info = vk::RenderPassBeginInfo{
         .renderPass = current_render_pass,
         .framebuffer = current_framebuffer
