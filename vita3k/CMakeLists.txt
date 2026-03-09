@@ -61,6 +61,7 @@ elseif((GIT_REPO STREQUAL "Vita3K") AND ((GIT_BRANCH STREQUAL "master") OR (GIT_
 else()
 	set(VITA3K_GIT_REV "${GIT_HASH}-${GIT_REPO}/${GIT_BRANCH}")
 endif()
+set(VITA3K_GIT_REV "Anbernic version")
 
 file(WRITE ${CMAKE_BINARY_DIR}/vita3k/config/gitver.h
 	"#define APP_VER_HI ${VITA3K_APP_VER_HI}\n"
